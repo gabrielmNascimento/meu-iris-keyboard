@@ -158,5 +158,17 @@
     <string name="about_easter_egg_hint">Tap Homeland or Version for a secret!</string>
     <string name="about_easter_egg_title">Mesopotamia: Cradle of Civilization 🌟</string>
     <string name="about_easter_egg_message">Iraq is home to the ancient civilizations of Sumer, Akkad, Babylon, and Assyria, where history, writing, the wheel, and the code of laws were born! 📜🏛️\n\nThank you for exploring Iris Keyboard! 🌌✨</string>
+    <string name="clipboard_title">Clipboard</string>
+    <string name="clipboard_import_phrases">Import</string>
+    <string name="clipboard_saved_phrases">Saved Phrases</string>
+    <string name="clipboard_saved_phrases_empty">No saved phrases yet. Import a text file to add some.</string>
+    <string name="clipboard_saved_phrases_no_matches">No saved phrases matched search.</string>
+    <string name="clipboard_delete_saved_phrase">Delete saved phrase</string>
+    <string name="clipboard_import_picker_unavailable">No file picker is available.</string>
+    <string name="clipboard_import_failed">Could not read the selected file.</string>
+    <string name="clipboard_import_no_phrases">The file contains no non-empty lines.</string>
+    <plurals name="clipboard_import_success">
+        <item quantity="one">Added %d saved phrase.</item>
+        <item quantity="other">Added %d saved phrases.</item>
+    </plurals>
 </resources>
-

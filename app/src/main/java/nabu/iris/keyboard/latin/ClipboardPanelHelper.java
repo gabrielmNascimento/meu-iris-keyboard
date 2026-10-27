@@ -6,7 +6,9 @@
 package nabu.iris.keyboard.latin;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -29,6 +31,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ public final class ClipboardPanelHelper {
 
     private final ImageView mBackBtn;
     private final TextView mTitleText;
+    private final TextView mImportBtn;
     private final TextView mClearAllBtn;
     private final LinearLayout mTabsLayout;
     private final LinearLayout mSearchBox;
@@ -66,6 +70,7 @@ public final class ClipboardPanelHelper {
 
         mBackBtn = inputView.findViewById(R.id.clipboard_back_btn);
         mTitleText = inputView.findViewById(R.id.clipboard_header_title);
+        mImportBtn = inputView.findViewById(R.id.clipboard_import_btn);
         mClearAllBtn = inputView.findViewById(R.id.clipboard_clear_all_btn);
         mTabsLayout = inputView.findViewById(R.id.clipboard_tabs_layout);
         mSearchBox = inputView.findViewById(R.id.clipboard_search_box);
@@ -98,6 +103,22 @@ public final class ClipboardPanelHelper {
 
         if (mClearAllBtn != null) {
             mClearAllBtn.setOnClickListener(v -> showClearAllConfirmation());
+        }
+
+        if (mImportBtn != null) {
+            mImportBtn.setOnClickListener(v -> {
+                mSelectedTab = "saved";
+                buildTabs();
+                refresh();
+                Intent intent = new Intent(mContext, ClipboardPhraseImportActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try {
+                    mContext.startActivity(intent);
+                } catch (ActivityNotFoundException e) {
+                    Toast.makeText(mContext, R.string.clipboard_import_picker_unavailable,
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
         }
 
         if (mSearchInput != null) {
@@ -201,6 +222,17 @@ public final class ClipboardPanelHelper {
             mClearAllBtn.setBackground(clearBg);
         }
 
+        if (mImportBtn != null) {
+            mImportBtn.setTextColor(accentColor);
+            GradientDrawable importBg = new GradientDrawable();
+            importBg.setShape(GradientDrawable.RECTANGLE);
+            importBg.setCornerRadius(mController.dpToPx(14));
+            importBg.setColor(mController.getTranslucentColor(accentColor, isDark ? 18 : 12));
+            importBg.setStroke(mController.dpToPx(1),
+                    mController.getTranslucentColor(accentColor, 40));
+            mImportBtn.setBackground(importBg);
+        }
+
         if (mSearchBox != null) {
             GradientDrawable sBg = new GradientDrawable();
             sBg.setShape(GradientDrawable.RECTANGLE);
@@ -242,8 +274,15 @@ public final class ClipboardPanelHelper {
             activeColor = mContext.getResources().getColor(R.color.settings_accent);
         }
 
-        String[] tabKeys = {"all", "pinned", "links"};
-        String[] tabTitles = {"All", "Pinned", "Links"};
+        String[] tabKeys = {"all", "pinned", "links", "saved"};
+        String[] tabTitles = {"All", "Pinned", "Links", "Saved"};
+        if (mTitleText != null) {
+            mTitleText.setText(mSelectedTab.equals("saved")
+                    ? R.string.clipboard_saved_phrases : R.string.clipboard_title);
+        }
+        if (mClearAllBtn != null) {
+            mClearAllBtn.setVisibility(mSelectedTab.equals("saved") ? View.GONE : View.VISIBLE);
+        }
 
         for (int i = 0; i < tabKeys.length; i++) {
             final String key = tabKeys[i];
@@ -294,6 +333,10 @@ public final class ClipboardPanelHelper {
 
         ClipboardHistoryManager manager = mController.getClipboardHistoryManager();
         if (manager == null) return;
+        if (mSelectedTab.equals("saved")) {
+            refreshSavedPhrases(manager);
+            return;
+        }
         List<ClipboardHistoryManager.ClipboardItem> allItems = manager.getItems();
         List<ClipboardHistoryManager.ClipboardItem> items = new ArrayList<>();
 
@@ -458,6 +501,7 @@ public final class ClipboardPanelHelper {
                                             listener.onItemClick(item.text);
                                         }
                                     }
+
                                 }
                             }
                             isSwiping = false;
@@ -520,6 +564,97 @@ public final class ClipboardPanelHelper {
             });
             rowLayout.addView(delBtn);
 
+            mItemsList.addView(rowLayout);
+        }
+    }
+
+    private void refreshSavedPhrases(ClipboardHistoryManager manager) {
+        List<String> phrases = manager.getSavedPhrases();
+        List<String> filteredPhrases = new ArrayList<>();
+        for (String phrase : phrases) {
+            if (mSearchQuery == null || mSearchQuery.isEmpty()
+                    || phrase.toLowerCase().contains(mSearchQuery.toLowerCase())) {
+                filteredPhrases.add(phrase);
+            }
+        }
+
+        int backgroundColor = mController.getKeyboardBackgroundColor();
+        boolean isDark = mController.isColorDark(backgroundColor);
+        int textColor = isDark ? 0xFFE6E1E5 : 0xFF1D1B20;
+        int hintColor = isDark ? 0x88FFFFFF : 0x88000000;
+        int normalOutline = isDark ? 0x22FFFFFF : 0x1A000000;
+        int cardFill = isDark ? 0x14FFFFFF : 0x0A000000;
+
+        if (filteredPhrases.isEmpty()) {
+            LinearLayout emptyLayout = new LinearLayout(mContext);
+            emptyLayout.setOrientation(LinearLayout.VERTICAL);
+            emptyLayout.setGravity(Gravity.CENTER);
+            emptyLayout.setPadding(32, mController.dpToPx(28), 32, mController.dpToPx(28));
+
+            TextView emptyView = new TextView(mContext);
+            emptyView.setText(mSearchQuery.isEmpty()
+                    ? R.string.clipboard_saved_phrases_empty
+                    : R.string.clipboard_saved_phrases_no_matches);
+            emptyView.setTextSize(12.5f);
+            emptyView.setGravity(Gravity.CENTER);
+            emptyView.setTextColor(hintColor);
+            emptyLayout.addView(emptyView);
+            mItemsList.addView(emptyLayout);
+            return;
+        }
+
+        for (String phrase : filteredPhrases) {
+            LinearLayout rowLayout = new LinearLayout(mContext);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setGravity(Gravity.CENTER_VERTICAL);
+            rowLayout.setPadding(mController.dpToPx(12), mController.dpToPx(8),
+                    mController.dpToPx(10), mController.dpToPx(8));
+
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setShape(GradientDrawable.RECTANGLE);
+            cardBg.setCornerRadius(mController.dpToPx(14));
+            cardBg.setColor(cardFill);
+            cardBg.setStroke(mController.dpToPx(1), normalOutline);
+            rowLayout.setBackground(cardBg);
+
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rowParams.setMargins(0, mController.dpToPx(3), 0, mController.dpToPx(3));
+            rowLayout.setLayoutParams(rowParams);
+
+            TextView phraseText = new TextView(mContext);
+            phraseText.setText(phrase);
+            phraseText.setTextSize(12.5f);
+            phraseText.setMaxLines(2);
+            phraseText.setEllipsize(TextUtils.TruncateAt.END);
+            phraseText.setTextColor(textColor);
+            phraseText.setGravity(Gravity.CENTER_VERTICAL);
+            phraseText.setLayoutParams(new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+            phraseText.setOnClickListener(v -> {
+                ClipboardBarController.OnItemClickListener listener =
+                        mController.getOnItemClickListener();
+                if (listener != null) {
+                    listener.onItemClick(phrase);
+                }
+            });
+            rowLayout.addView(phraseText);
+
+            ImageView deleteButton = new ImageView(mContext);
+            deleteButton.setImageResource(R.drawable.ic_close);
+            deleteButton.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            deleteButton.setPadding(mController.dpToPx(6), mController.dpToPx(6),
+                    mController.dpToPx(6), mController.dpToPx(6));
+            deleteButton.setLayoutParams(new LinearLayout.LayoutParams(
+                    mController.dpToPx(28), mController.dpToPx(28)));
+            deleteButton.setColorFilter(0xFFEE5253);
+            deleteButton.setContentDescription(
+                    mContext.getString(R.string.clipboard_delete_saved_phrase));
+            deleteButton.setOnClickListener(v -> {
+                manager.deleteSavedPhrase(phrase);
+                refresh();
+            });
+            rowLayout.addView(deleteButton);
             mItemsList.addView(rowLayout);
         }
     }

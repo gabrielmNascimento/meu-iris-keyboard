@@ -5,6 +5,9 @@
 package nabu.iris.keyboard.latin;
 
 import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -30,6 +33,8 @@ import nabu.iris.keyboard.latin.settings.Settings;
  */
 public final class ClipboardBarController {
     private static final String TAG = "ClipboardBarController";
+    static final String ACTION_SAVED_PHRASES_UPDATED =
+            "nabu.iris.keyboard.action.SAVED_PHRASES_UPDATED";
     
     private final Context mContext;
     private final ClipboardHistoryManager mManager;
@@ -80,6 +85,12 @@ public final class ClipboardBarController {
     private TranslationPanelHelper mTranslationPanelHelper;
 
     private EditText mActiveInput = null;
+    private final BroadcastReceiver mSavedPhrasesReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            refresh();
+        }
+    };
 
     public interface OnItemClickListener {
         void onItemClick(String text);
@@ -117,6 +128,13 @@ public final class ClipboardBarController {
 
         // Initialize suggestion helper (uses toolbar chip)
         mSuggestionHelper = new ClipboardSuggestionHelper(this, inputView);
+        IntentFilter savedPhrasesFilter = new IntentFilter(ACTION_SAVED_PHRASES_UPDATED);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            mContext.registerReceiver(mSavedPhrasesReceiver, savedPhrasesFilter,
+                    Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            mContext.registerReceiver(mSavedPhrasesReceiver, savedPhrasesFilter);
+        }
 
         // Attach Quick-Access Toolbar Click Actions
         if (mTbKeysBtn != null) {
@@ -560,6 +578,7 @@ public final class ClipboardBarController {
     }
 
     public void onDestroy() {
+        mContext.unregisterReceiver(mSavedPhrasesReceiver);
         if (mSuggestionHelper != null) mSuggestionHelper.onDestroy();
         if (mGifPanelHelper != null) mGifPanelHelper.onDestroy();
         if (mTranslationPanelHelper != null) mTranslationPanelHelper.onDestroy();

@@ -44,6 +44,19 @@
             android:layout_marginStart="8dp" />
 
         <TextView
+            android:id="@+id/clipboard_import_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:text="@string/clipboard_import_phrases"
+            android:textSize="11.5sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
             android:id="@+id/clipboard_clear_all_btn"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
@@ -67,13 +80,19 @@
         android:layout_marginBottom="6dp">
 
         <!-- Filter Chips Container -->
-        <LinearLayout
-            android:id="@+id/clipboard_tabs_layout"
+        <HorizontalScrollView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical" />
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/clipboard_tabs_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical" />
+        </HorizontalScrollView>
 
         <!-- Search Input Box (Pill Container) -->
         <LinearLayout

@@ -9,11 +9,13 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 public final class ClipboardHistoryManager {
     private static final String PREF_FILE = "clipboard_history_prefs";
     private static final String PREF_KEY_HISTORY = "clipboard_history_json";
+    private static final String PREF_KEY_SAVED_PHRASES = "clipboard_saved_phrases_json";
     private static final int MAX_ITEMS = 20;
 
     private final SharedPreferences mPrefs;
@@ -90,6 +92,61 @@ public final class ClipboardHistoryManager {
             }
         });
         return sorted;
+    }
+
+    public synchronized List<String> getSavedPhrases() {
+        LinkedHashSet<String> phrases = new LinkedHashSet<>();
+        String json = mPrefs.getString(PREF_KEY_SAVED_PHRASES, null);
+        if (json == null) {
+            return new ArrayList<>();
+        }
+        try {
+            JSONArray array = new JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                String phrase = array.optString(i, "").trim();
+                if (!phrase.isEmpty()) {
+                    phrases.add(phrase);
+                }
+            }
+        } catch (JSONException e) {
+            android.util.Log.e("ClipboardHistoryManager", "Unable to load saved phrases", e);
+        }
+        return new ArrayList<>(phrases);
+    }
+
+    public synchronized int addSavedPhrases(List<String> importedPhrases) {
+        LinkedHashSet<String> phrases = new LinkedHashSet<>(getSavedPhrases());
+        int previousCount = phrases.size();
+        for (String phrase : importedPhrases) {
+            if (phrase != null && !phrase.trim().isEmpty()) {
+                phrases.add(phrase.trim());
+            }
+        }
+        if (phrases.size() == previousCount) {
+            return 0;
+        }
+
+        JSONArray array = new JSONArray();
+        for (String phrase : phrases) {
+            array.put(phrase);
+        }
+        mPrefs.edit().putString(PREF_KEY_SAVED_PHRASES, array.toString()).apply();
+        return phrases.size() - previousCount;
+    }
+
+    public synchronized void deleteSavedPhrase(String phrase) {
+        if (phrase == null) {
+            return;
+        }
+        List<String> phrases = getSavedPhrases();
+        if (!phrases.remove(phrase)) {
+            return;
+        }
+        JSONArray array = new JSONArray();
+        for (String savedPhrase : phrases) {
+            array.put(savedPhrase);
+        }
+        mPrefs.edit().putString(PREF_KEY_SAVED_PHRASES, array.toString()).apply();
     }
 
     public synchronized void addItem(String text) {

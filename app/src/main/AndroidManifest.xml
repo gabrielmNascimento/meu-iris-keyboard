@@ -59,6 +59,11 @@
             android:exported="false"
             android:theme="@style/platformSettingsTheme" />
 
+        <activity
+            android:name=".latin.ClipboardPhraseImportActivity"
+            android:exported="false"
+            android:theme="@style/platformSettingsTheme" />
+
         <receiver
             android:name=".latin.SystemBroadcastReceiver"
             android:exported="false">
