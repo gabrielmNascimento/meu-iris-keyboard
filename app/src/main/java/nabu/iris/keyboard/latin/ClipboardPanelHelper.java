@@ -349,6 +349,9 @@ public final class ClipboardPanelHelper {
             if (mSelectedTab.equals("pinned") && !item.isPinned) {
                 continue;
             }
+            if (mSelectedTab.equals("all") && item.isPinned) {
+                continue;
+            }
             if (mSelectedTab.equals("links")) {
                 String text = item.text.toLowerCase();
                 if (!text.contains("http://") && !text.contains("https://") && !text.contains("www.")) {
