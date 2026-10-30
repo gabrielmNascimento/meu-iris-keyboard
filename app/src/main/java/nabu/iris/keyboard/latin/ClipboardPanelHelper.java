@@ -52,6 +52,7 @@ public final class ClipboardPanelHelper {
     private final ImageView mBackBtn;
     private final TextView mTitleText;
     private final TextView mImportBtn;
+    private final TextView mDeepQuestionBtn;
     private final TextView mClearAllBtn;
     private final LinearLayout mTabsLayout;
     private final LinearLayout mSearchBox;
@@ -70,6 +71,7 @@ public final class ClipboardPanelHelper {
 
         mBackBtn = inputView.findViewById(R.id.clipboard_back_btn);
         mTitleText = inputView.findViewById(R.id.clipboard_header_title);
+        mDeepQuestionBtn = inputView.findViewById(R.id.clipboard_deep_question_btn);
         mImportBtn = inputView.findViewById(R.id.clipboard_import_btn);
         mClearAllBtn = inputView.findViewById(R.id.clipboard_clear_all_btn);
         mTabsLayout = inputView.findViewById(R.id.clipboard_tabs_layout);
@@ -103,6 +105,13 @@ public final class ClipboardPanelHelper {
 
         if (mClearAllBtn != null) {
             mClearAllBtn.setOnClickListener(v -> showClearAllConfirmation());
+        }
+
+        if (mDeepQuestionBtn != null) {
+            mDeepQuestionBtn.setOnClickListener(v -> {
+                android.util.Log.d("ClipboardPanel", "Deep Question button clicked!");
+                generateDeepQuestion();
+            });
         }
 
         if (mImportBtn != null) {
@@ -180,6 +189,123 @@ public final class ClipboardPanelHelper {
         dialog.show();
     }
 
+    private void generateDeepQuestion() {
+        android.util.Log.d("ClipboardPanel", "generateDeepQuestion() called");
+        
+        AiCopilotManager aiManager = mController.getAiManager();
+        android.util.Log.d("ClipboardPanel", "AI Manager: " + (aiManager != null ? "available" : "null"));
+        
+        if (aiManager == null) {
+            Toast.makeText(mContext, "AI feature is not available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Show loading indicator
+        Toast.makeText(mContext, "Generating deep question...", Toast.LENGTH_SHORT).show();
+        android.util.Log.d("ClipboardPanel", "Starting AI query...");
+
+        String prompt = "Generate a single thought-provoking, deep conversation question that can keep a discussion going. " +
+                "The question should be engaging, open-ended, and encourage meaningful dialogue. " +
+                "Only provide the question itself, nothing else. Keep it concise but impactful.";
+
+        aiManager.queryAi(prompt, new AiCopilotManager.AiCallback() {
+            @Override
+            public void onSuccess(String question) {
+                android.util.Log.d("ClipboardPanel", "AI Success: " + question);
+                if (question != null && !question.trim().isEmpty()) {
+                    String cleanQuestion = question.trim();
+                    
+                    // Add to clipboard history and pin it
+                    ClipboardHistoryManager manager = mController.getClipboardHistoryManager();
+                    if (manager != null) {
+                        manager.addItem(cleanQuestion);
+                        manager.togglePin(cleanQuestion);
+                        
+                        // Switch to pinned tab and refresh
+                        mSelectedTab = "pinned";
+                        buildTabs();
+                        refresh();
+                        
+                        // Show success dialog instead of toast
+                        showSuccessDialog("✅ Deep Question Generated!", 
+                            "The question has been generated and pinned to your clipboard.\n\nSwipe right on it to copy or insert.");
+                    }
+                } else {
+                    showErrorDialog("⚠️ Generation Failed", "The AI returned an empty response. Please try again.");
+                }
+            }
+
+            @Override
+            public void onFailure(String errorMessage) {
+                android.util.Log.e("ClipboardPanel", "AI Failure: " + errorMessage);
+                
+                // Parse the error message for better user feedback
+                String title;
+                String message;
+                
+                if (errorMessage != null && errorMessage.contains("429")) {
+                    title = "⚠️ Daily Quota Exceeded";
+                    message = "You've reached your daily API limit.\n\nPlease try again in 30-60 minutes or use a different API key in keyboard settings.";
+                } else if (errorMessage != null && errorMessage.contains("API Key is empty")) {
+                    title = "⚠️ API Key Missing";
+                    message = "Please add your AI API key in:\nKeyboard Settings → AI Copilot → Provider Settings";
+                } else if (errorMessage != null && errorMessage.contains("localhost:11434")) {
+                    title = "⚠️ Ollama Not Running";
+                    message = "Please start Ollama in Termux or switch to Gemini in AI settings.";
+                } else {
+                    title = "⚠️ AI Error";
+                    message = errorMessage != null && errorMessage.length() > 200 
+                        ? errorMessage.substring(0, 200) + "..." 
+                        : errorMessage;
+                }
+                
+                showErrorDialog(title, message);
+            }
+        });
+    }
+
+    private void showSuccessDialog(String title, String message) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("OK", null);
+
+        AlertDialog dialog = builder.create();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            WindowManager.LayoutParams lp = window.getAttributes();
+            View keyboardView = mController.getKeyboardView();
+            if (keyboardView != null) {
+                lp.token = keyboardView.getWindowToken();
+            }
+            lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
+            window.setAttributes(lp);
+            window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        }
+        dialog.show();
+    }
+
+    private void showErrorDialog(String title, String message) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("OK", null);
+
+        AlertDialog dialog = builder.create();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            WindowManager.LayoutParams lp = window.getAttributes();
+            View keyboardView = mController.getKeyboardView();
+            if (keyboardView != null) {
+                lp.token = keyboardView.getWindowToken();
+            }
+            lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
+            window.setAttributes(lp);
+            window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        }
+        dialog.show();
+    }
+
     public void applyTheming() {
         int backgroundColor = mController.getKeyboardBackgroundColor();
         boolean isDark = mController.isColorDark(backgroundColor);
@@ -220,6 +346,16 @@ public final class ClipboardPanelHelper {
             clearBg.setColor(mController.getTranslucentColor(accentColor, isDark ? 18 : 12));
             clearBg.setStroke(mController.dpToPx(1), mController.getTranslucentColor(accentColor, 40));
             mClearAllBtn.setBackground(clearBg);
+        }
+
+        if (mDeepQuestionBtn != null) {
+            mDeepQuestionBtn.setTextColor(accentColor);
+            GradientDrawable deepQBg = new GradientDrawable();
+            deepQBg.setShape(GradientDrawable.RECTANGLE);
+            deepQBg.setCornerRadius(mController.dpToPx(14));
+            deepQBg.setColor(mController.getTranslucentColor(accentColor, isDark ? 18 : 12));
+            deepQBg.setStroke(mController.dpToPx(1), mController.getTranslucentColor(accentColor, 40));
+            mDeepQuestionBtn.setBackground(deepQBg);
         }
 
         if (mImportBtn != null) {

@@ -160,6 +160,7 @@
     <string name="about_easter_egg_message">Iraq is home to the ancient civilizations of Sumer, Akkad, Babylon, and Assyria, where history, writing, the wheel, and the code of laws were born! 📜🏛️\n\nThank you for exploring Iris Keyboard! 🌌✨</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_import_phrases">Import</string>
+    <string name="clipboard_deep_question">Deep Q</string>
     <string name="clipboard_saved_phrases">Saved Phrases</string>
     <string name="clipboard_saved_phrases_empty">No saved phrases yet. Import a text file to add some.</string>
     <string name="clipboard_saved_phrases_no_matches">No saved phrases matched search.</string>
