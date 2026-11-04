@@ -130,7 +130,8 @@ public final class AiSettingsFragment extends SubScreenFragment {
         updateListSummary(Settings.PREF_AI_PROVIDER);
 
         updateEditTextSummary(Settings.PREF_GEMINI_KEY, "Not set", true);
-        updateEditTextSummary(KEY_GEMINI_MODEL, "gemini-2.5-flash", false);
+        Settings.readGeminiModel(getSharedPreferences());
+        updateEditTextSummary(KEY_GEMINI_MODEL, "gemini-3.5-flash-lite", false);
 
         updateEditTextSummary(Settings.PREF_OLLAMA_URL, "http://localhost:11434", false);
         updateEditTextSummary(Settings.PREF_OLLAMA_MODEL, "qwen2.5-coder", false);

@@ -74,6 +74,11 @@ public final class AiCopilotManager {
     }
 
     public void queryAiWithProvider(final String targetProvider, final String prompt, final AiCallback callback) {
+        queryAiWithGeminiFallbackModel(targetProvider, prompt, null, callback);
+    }
+
+    public void queryAiWithGeminiFallbackModel(final String targetProvider, final String prompt,
+            final String fallbackModel, final AiCallback callback) {
         sExecutor.execute(() -> {
             SharedPreferences prefs = PreferenceManagerCompat.getDeviceSharedPreferences(mContext);
             String provider = targetProvider;
@@ -87,13 +92,45 @@ public final class AiCopilotManager {
             
             if ("gemini".equals(provider)) {
                 String model = Settings.readGeminiModel(prefs);
-                queryGemini(prompt, Settings.readGeminiKey(prefs), model, systemPrompt, temperature, skipParams, callback);
+                String apiKey = Settings.readGeminiKey(prefs);
+                AiCallback geminiCallback = callback;
+                if (fallbackModel != null && !fallbackModel.equals(model)) {
+                    geminiCallback = new AiCallback() {
+                        @Override
+                        public void onSuccess(String responseText) {
+                            callback.onSuccess(responseText);
+                        }
+
+                        @Override
+                        public void onFailure(String errorMessage) {
+                            if (isGeminiOverloaded(errorMessage)) {
+                                Log.w(TAG, "Gemini model " + model + " is overloaded; trying fallback model "
+                                        + fallbackModel);
+                                sExecutor.execute(() -> queryGemini(prompt, apiKey, fallbackModel,
+                                        systemPrompt, temperature, skipParams, callback));
+                            } else {
+                                callback.onFailure(errorMessage);
+                            }
+                        }
+                    };
+                }
+                queryGemini(prompt, apiKey, model, systemPrompt, temperature, skipParams, geminiCallback);
             } else if ("custom".equals(provider)) {
                 queryCustom(prompt, Settings.readCustomUrl(prefs), Settings.readCustomModel(prefs), Settings.readCustomHeaders(prefs), systemPrompt, temperature, maxTokens, skipParams, callback);
             } else {
                 queryOllama(prompt, Settings.readOllamaUrl(prefs), Settings.readOllamaModel(prefs), systemPrompt, temperature, skipParams, callback);
             }
         });
+    }
+
+    private boolean isGeminiOverloaded(String errorMessage) {
+        if (errorMessage == null) {
+            return false;
+        }
+        String error = errorMessage.toLowerCase(java.util.Locale.ROOT);
+        return error.contains("http 503")
+                || error.contains("high demand")
+                || error.contains("overloaded");
     }
 
     private void queryGemini(final String prompt, final String apiKey, final String model, final String systemPrompt, final float temperature, final boolean skipParams, final AiCallback callback) {

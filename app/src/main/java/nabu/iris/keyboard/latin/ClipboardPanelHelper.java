@@ -16,6 +16,8 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.text.Editable;
@@ -61,6 +63,8 @@ public final class ClipboardPanelHelper {
 
     private String mSelectedTab = "all";
     private String mSearchQuery = "";
+    private boolean mIsGeneratingDeepQuestion;
+    private final Handler mDeepQuestionRetryHandler = new Handler(Looper.getMainLooper());
 
     public ClipboardPanelHelper(ClipboardBarController controller, View inputView) {
         mController = controller;
@@ -190,31 +194,35 @@ public final class ClipboardPanelHelper {
     }
 
     private void generateDeepQuestion() {
-        android.util.Log.d("ClipboardPanel", "generateDeepQuestion() called");
-        
+        if (mIsGeneratingDeepQuestion) {
+            return;
+        }
+
         AiCopilotManager aiManager = mController.getAiManager();
-        android.util.Log.d("ClipboardPanel", "AI Manager: " + (aiManager != null ? "available" : "null"));
-        
         if (aiManager == null) {
             Toast.makeText(mContext, "AI feature is not available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Show loading indicator
-        Toast.makeText(mContext, "Generating deep question...", Toast.LENGTH_SHORT).show();
-        android.util.Log.d("ClipboardPanel", "Starting AI query...");
+        setDeepQuestionLoading(true, false);
+        requestDeepQuestion(aiManager, 1);
+    }
+
+    private void requestDeepQuestion(AiCopilotManager aiManager, int retriesRemaining) {
 
         String prompt = "Generate a single thought-provoking, deep conversation question that can keep a discussion going. " +
                 "The question should be engaging, open-ended, and encourage meaningful dialogue. " +
                 "Only provide the question itself, nothing else. Keep it concise but impactful.";
 
-        aiManager.queryAi(prompt, new AiCopilotManager.AiCallback() {
+        aiManager.queryAiWithGeminiFallbackModel(null, prompt, "gemini-3.5-flash-lite",
+                new AiCopilotManager.AiCallback() {
             @Override
             public void onSuccess(String question) {
                 android.util.Log.d("ClipboardPanel", "AI Success: " + question);
+                setDeepQuestionLoading(false, false);
                 if (question != null && !question.trim().isEmpty()) {
                     String cleanQuestion = question.trim();
-                    
+
                     // Add to clipboard history and pin it
                     ClipboardHistoryManager manager = mController.getClipboardHistoryManager();
                     if (manager != null) {
@@ -238,7 +246,16 @@ public final class ClipboardPanelHelper {
             @Override
             public void onFailure(String errorMessage) {
                 android.util.Log.e("ClipboardPanel", "AI Failure: " + errorMessage);
-                
+
+                if (retriesRemaining > 0 && isTransientAiError(errorMessage)) {
+                    setDeepQuestionLoading(true, true);
+                    mDeepQuestionRetryHandler.postDelayed(
+                            () -> requestDeepQuestion(aiManager, retriesRemaining - 1), 1200);
+                    return;
+                }
+
+                setDeepQuestionLoading(false, false);
+
                 // Parse the error message for better user feedback
                 String title;
                 String message;
@@ -246,6 +263,10 @@ public final class ClipboardPanelHelper {
                 if (errorMessage != null && errorMessage.contains("429")) {
                     title = "⚠️ Daily Quota Exceeded";
                     message = "You've reached your daily API limit.\n\nPlease try again in 30-60 minutes or use a different API key in keyboard settings.";
+                } else if (errorMessage != null
+                        && errorMessage.toLowerCase(java.util.Locale.ROOT).contains("high demand")) {
+                    title = "⚠️ Gemini Models Busy";
+                    message = "Gemini's selected model and Deep Q fallback are both experiencing high demand. Please try again later.";
                 } else if (errorMessage != null && errorMessage.contains("API Key is empty")) {
                     title = "⚠️ API Key Missing";
                     message = "Please add your AI API key in:\nKeyboard Settings → AI Copilot → Provider Settings";
@@ -262,6 +283,30 @@ public final class ClipboardPanelHelper {
                 showErrorDialog(title, message);
             }
         });
+    }
+
+    private void setDeepQuestionLoading(boolean loading, boolean retrying) {
+        mIsGeneratingDeepQuestion = loading;
+        if (mDeepQuestionBtn == null) {
+            return;
+        }
+        mDeepQuestionBtn.setText(loading
+                ? (retrying ? R.string.clipboard_deep_question_retrying
+                        : R.string.clipboard_deep_question_generating)
+                : R.string.clipboard_deep_question);
+        mDeepQuestionBtn.setEnabled(!loading);
+        mDeepQuestionBtn.setAlpha(loading ? 0.7f : 1.0f);
+    }
+
+    private boolean isTransientAiError(String errorMessage) {
+        if (errorMessage == null) {
+            return false;
+        }
+        String error = errorMessage.toLowerCase(java.util.Locale.ROOT);
+        return error.contains("network error")
+                || error.contains("connection failed")
+                || error.contains("http 502")
+                || error.contains("http 504");
     }
 
     private void showSuccessDialog(String title, String message) {

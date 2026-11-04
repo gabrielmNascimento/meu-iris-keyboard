@@ -527,7 +527,12 @@ public final class Settings extends BroadcastReceiver implements SharedPreferenc
     }
 
     public static String readGeminiModel(final SharedPreferences prefs) {
-        return prefs.getString(PREF_GEMINI_MODEL, "gemini-2.5-flash");
+        String model = prefs.getString(PREF_GEMINI_MODEL, "gemini-3.5-flash-lite");
+        if ("gemini-2.5-flash".equals(model)) {
+            model = "gemini-3.5-flash-lite";
+            prefs.edit().putString(PREF_GEMINI_MODEL, model).apply();
+        }
+        return model;
     }
 
     public static boolean readShowEmojiKey(final SharedPreferences prefs) {
