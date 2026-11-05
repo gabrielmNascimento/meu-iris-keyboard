@@ -599,7 +599,9 @@ public final class ClipboardBarController {
         } else if (workspaceView == mGifPanel) {
             params.height = dpToPx(160);
         } else if (workspaceView == mTranslatePanel) {
-            params.height = dpToPx(185);
+            boolean extraRow = mTranslationPanelHelper != null
+                    && mTranslationPanelHelper.isSpeechStyleRowVisible();
+            params.height = dpToPx(extraRow ? 218 : 185);
         } else {
             if (mKeyboardView == null) return;
 
@@ -620,6 +622,13 @@ public final class ClipboardBarController {
             params.height = targetHeight;
         }
         workspaceView.setLayoutParams(params);
+    }
+
+    void refreshTranslatePanelHeight() {
+        if (mTranslatePanel != null) {
+            syncWorkspaceHeights(mTranslatePanel);
+            triggerLayoutRequest();
+        }
     }
 
     void triggerLayoutRequest() {

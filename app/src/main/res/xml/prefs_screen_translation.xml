@@ -34,11 +34,17 @@
             android:entryValues="@array/translate_ai_provider_values"
             android:defaultValue="active" />
 
+        <SwitchPreference
+            android:key="pref_translate_use_context"
+            android:title="Use Nearby Text as Context"
+            android:summary="Include up to 400 characters before the cursor in the active text field in AI translation requests. This text is sent to the selected AI provider. Disabled in password fields."
+            android:defaultValue="false" />
+
         <EditTextPreference
             android:key="pref_translate_custom_prompt"
             android:title="AI Custom Prompt"
-            android:summary="Custom instruction used when translating text via AI. Supports [Language] and [Text]."
-            android:defaultValue="Translate the following text to [Language]. Output ONLY the translated text. Do not include any explanations, warnings, headers, greetings, markdown blocks, or surrounding quotes:\n\n[Text]" />
+            android:summary="Custom instruction used when translating via AI. Supports [Source Language], [Language], [Text], and optional [Context]."
+            android:defaultValue="Translate from [Source Language] into [Language].\n\n[Text]" />
     </PreferenceCategory>
 
     <!-- ML Kit Storage Category -->

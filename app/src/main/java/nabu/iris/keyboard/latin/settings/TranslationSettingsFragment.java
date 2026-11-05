@@ -91,7 +91,7 @@ public final class TranslationSettingsFragment extends SubScreenFragment {
         // AI Provider
         updateListSummary(KEY_AI_PROVIDER);
         // Custom Prompt
-        updateEditTextSummary(KEY_CUSTOM_PROMPT, "Default prompt template");
+        updateEditTextSummary(KEY_CUSTOM_PROMPT, "Default translation prompt");
     }
 
     private void updateListSummary(String key) {
