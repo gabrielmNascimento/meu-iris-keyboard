@@ -189,6 +189,40 @@
             android:focusable="true" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/translate_external_actions"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
+
+        <TextView
+            android:id="@+id/translate_open_deepseek_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:text="Open DeepSeek"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/translate_paste_result_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:text="Paste result"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginStart="6dp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
     <!-- Material 3 Result Container (Preview & Insert Action) -->
     <LinearLayout
         android:id="@+id/translate_result_container"

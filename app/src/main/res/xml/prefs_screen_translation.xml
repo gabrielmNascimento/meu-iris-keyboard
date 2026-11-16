@@ -45,6 +45,13 @@
             android:title="AI Custom Prompt"
             android:summary="Custom instruction used when translating via AI. Supports [Source Language], [Language], [Text], and optional [Context]."
             android:defaultValue="Translate from [Source Language] into [Language].\n\n[Text]" />
+
+        <EditTextPreference
+            android:key="pref_translate_deepseek_chat_urls"
+            android:title="DeepSeek Chat Links by Language"
+            android:summary="Optional: enter one language-code=chat-URL per line (for example, ko=https://chat.deepseek.com/...). Use default=URL as a fallback. Leave blank to open DeepSeek's home page."
+            android:inputType="textMultiLine|textUri"
+            android:defaultValue="" />
     </PreferenceCategory>
 
     <!-- ML Kit Storage Category -->

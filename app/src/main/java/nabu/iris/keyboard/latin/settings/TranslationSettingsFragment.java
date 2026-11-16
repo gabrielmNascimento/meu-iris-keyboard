@@ -25,6 +25,7 @@ public final class TranslationSettingsFragment extends SubScreenFragment {
 
     private static final String KEY_CLEAR_MODELS = "pref_translate_clear_models";
     private static final String KEY_CUSTOM_PROMPT = "pref_translate_custom_prompt";
+    private static final String KEY_DEEPSEEK_CHAT_URLS = "pref_translate_deepseek_chat_urls";
     private static final String KEY_AI_PROVIDER = "pref_translate_ai_provider";
     private static final String KEY_TRANSLATE_MODE = "pref_translate_mode";
     private static final String KEY_SHORTCUT_TOGGLE = "pref_utility_show_translate";
@@ -92,6 +93,7 @@ public final class TranslationSettingsFragment extends SubScreenFragment {
         updateListSummary(KEY_AI_PROVIDER);
         // Custom Prompt
         updateEditTextSummary(KEY_CUSTOM_PROMPT, "Default translation prompt");
+        updateEditTextSummary(KEY_DEEPSEEK_CHAT_URLS, "No language-specific chats configured");
     }
 
     private void updateListSummary(String key) {

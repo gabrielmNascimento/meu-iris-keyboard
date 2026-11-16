@@ -5,13 +5,18 @@
 package nabu.iris.keyboard.latin;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Html;
+import android.net.Uri;
 import android.widget.Toast;
 import android.view.View;
 import android.view.Window;
@@ -58,6 +63,9 @@ public final class TranslationPanelHelper {
     private final EditText mTranslateInput;
     private final ImageView mTranslateClearBtn;
     private final TextView mTranslatePasteBtn;
+    private final LinearLayout mTranslateExternalActions;
+    private final TextView mTranslateOpenDeepSeekBtn;
+    private final TextView mTranslatePasteResultBtn;
     private final LinearLayout mTranslateResultContainer;
     private final TextView mTranslateResultPreview;
     private final TextView mTranslateInsertBtn;
@@ -111,6 +119,9 @@ public final class TranslationPanelHelper {
         mTranslateInput = inputView.findViewById(R.id.translate_input);
         mTranslateClearBtn = inputView.findViewById(R.id.translate_clear_btn);
         mTranslatePasteBtn = inputView.findViewById(R.id.translate_paste_btn);
+        mTranslateExternalActions = inputView.findViewById(R.id.translate_external_actions);
+        mTranslateOpenDeepSeekBtn = inputView.findViewById(R.id.translate_open_deepseek_btn);
+        mTranslatePasteResultBtn = inputView.findViewById(R.id.translate_paste_result_btn);
         mTranslateResultContainer = inputView.findViewById(R.id.translate_result_container);
         mTranslateResultPreview = inputView.findViewById(R.id.translate_result_preview);
         mTranslateInsertBtn = inputView.findViewById(R.id.translate_insert_btn);
@@ -230,6 +241,13 @@ public final class TranslationPanelHelper {
             });
         }
 
+        if (mTranslateOpenDeepSeekBtn != null) {
+            mTranslateOpenDeepSeekBtn.setOnClickListener(v -> openDeepSeek());
+        }
+        if (mTranslatePasteResultBtn != null) {
+            mTranslatePasteResultBtn.setOnClickListener(v -> pasteExternalTranslation());
+        }
+
         if (mTranslateInsertBtn != null) {
             mTranslateInsertBtn.setOnClickListener(v -> {
                 if (mTranslateResultPreview != null) {
@@ -261,6 +279,7 @@ public final class TranslationPanelHelper {
                     if (mTranslateClearBtn != null) {
                         mTranslateClearBtn.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
                     }
+                    updateExternalActionsVisibility();
                     if (mTranslateRunnable != null) {
                         mTranslateHandler.removeCallbacks(mTranslateRunnable);
                     }
@@ -379,6 +398,7 @@ public final class TranslationPanelHelper {
 
         mLastRawTranslation = null;
         final String text = mTranslateInput.getText().toString().trim();
+        updateExternalActionsVisibility();
         if (text.isEmpty()) {
             mTranslateResultPreview.setText("");
             mTranslateInsertBtn.setVisibility(View.GONE);
@@ -397,6 +417,132 @@ public final class TranslationPanelHelper {
         } else if ("ai".equals(mTranslateMode)) {
             translateViaAi(text);
         }
+    }
+
+    private void updateExternalActionsVisibility() {
+        if (mTranslateExternalActions != null && mTranslateInput != null) {
+            boolean hasText = !mTranslateInput.getText().toString().trim().isEmpty();
+            mTranslateExternalActions.setVisibility(hasText ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void openDeepSeek() {
+        if (mTranslateInput == null) {
+            return;
+        }
+        String text = mTranslateInput.getText().toString().trim();
+        if (text.isEmpty()) {
+            Toast.makeText(mContext, "Enter text to translate first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String sourceLanguage = "auto".equals(mTranslateSourceLang)
+                ? "the detected source language"
+                : getLanguageName(mTranslateSourceLang);
+        String prompt = "Translate the following text from " + sourceLanguage + " into natural "
+                + getLanguageName(mTranslateTargetLang) + ". Preserve the meaning, tone, names, and formatting. "
+                + "Use natural phrasing and appropriate politeness. Output only the translation.\n\n"
+                + text;
+
+        ClipboardManager clipboard = (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            Toast.makeText(mContext, "Could not access the clipboard", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        clipboard.setPrimaryClip(ClipData.newPlainText("Translation request", prompt));
+
+        SharedPreferences prefs = PreferenceManagerCompat.getDeviceSharedPreferences(mContext);
+        String chatUrl = getDeepSeekChatUrl(prefs);
+        boolean hasLanguageChat = !chatUrl.isEmpty();
+        if (!hasLanguageChat) {
+            chatUrl = "https://chat.deepseek.com";
+        }
+        Uri chatUri = Uri.parse(chatUrl);
+        String host = chatUri.getHost();
+        if (!"https".equalsIgnoreCase(chatUri.getScheme()) || host == null
+                || !("deepseek.com".equalsIgnoreCase(host)
+                || host.toLowerCase(java.util.Locale.ROOT).endsWith(".deepseek.com"))) {
+            Toast.makeText(mContext, "The saved chat link must be an HTTPS DeepSeek URL",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Intent intent = new Intent(Intent.ACTION_VIEW, chatUri);
+        intent.setPackage("com.deepseek.chat");
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            mContext.startActivity(intent);
+            String message = hasLanguageChat
+                    ? "Request copied. Paste it in your DeepSeek chat, then copy its translation back here."
+                    : "No chat link is set for this language. Request copied; paste it in DeepSeek, then copy the translation back here.";
+            Toast.makeText(mContext, message,
+                    Toast.LENGTH_LONG).show();
+        } catch (ActivityNotFoundException e) {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, chatUri);
+            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                mContext.startActivity(browserIntent);
+                String message = hasLanguageChat
+                        ? "DeepSeek app could not open this chat. Opened it in your browser instead."
+                        : "DeepSeek app is unavailable. Opened DeepSeek in your browser.";
+                Toast.makeText(mContext, message, Toast.LENGTH_LONG).show();
+            } catch (ActivityNotFoundException browserException) {
+                Toast.makeText(mContext, "No app is available to open DeepSeek",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private String getDeepSeekChatUrl(SharedPreferences prefs) {
+        String configuredUrls = prefs.getString("pref_translate_deepseek_chat_urls", "");
+        String fallbackUrl = "";
+        String languageUrl = "";
+        String targetLanguage = mTranslateTargetLang.toLowerCase(java.util.Locale.ROOT);
+        for (String line : configuredUrls.split("\\r?\\n")) {
+            String entry = line.trim();
+            if (entry.isEmpty() || entry.startsWith("#")) {
+                continue;
+            }
+            int separator = entry.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            String languageCode = entry.substring(0, separator).trim()
+                    .toLowerCase(java.util.Locale.ROOT);
+            String url = entry.substring(separator + 1).trim();
+            if (url.isEmpty()) {
+                continue;
+            }
+            if (targetLanguage.equals(languageCode)) {
+                languageUrl = url;
+            } else if ("default".equals(languageCode)) {
+                fallbackUrl = url;
+            }
+        }
+        return languageUrl.isEmpty() ? fallbackUrl : languageUrl;
+    }
+
+    private void pasteExternalTranslation() {
+        ClipboardManager clipboard = (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null || !clipboard.hasPrimaryClip()) {
+            Toast.makeText(mContext, "Clipboard is empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ClipData clip = clipboard.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) {
+            Toast.makeText(mContext, "Clipboard is empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        CharSequence pastedText = clip.getItemAt(0).coerceToText(mContext);
+        if (pastedText == null || pastedText.toString().trim().isEmpty()) {
+            Toast.makeText(mContext, "Clipboard has no translation text", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        showTranslateProgress(false);
+        mTranslateResultPreview.setText(pastedText);
+        mTranslateInsertBtn.setVisibility(View.VISIBLE);
     }
 
     private void translateViaScraping(final String text) {
@@ -888,6 +1034,9 @@ public final class TranslationPanelHelper {
             mTranslatePasteBtn.setTextColor(textColor);
         }
 
+        applyExternalActionTheme(mTranslateOpenDeepSeekBtn, accentColor);
+        applyExternalActionTheme(mTranslatePasteResultBtn, accentColor);
+
         if (mTranslateResultContainer != null) {
             GradientDrawable resBg = new GradientDrawable();
             resBg.setShape(GradientDrawable.RECTANGLE);
@@ -910,6 +1059,19 @@ public final class TranslationPanelHelper {
             mTranslateInsertBtn.setBackground(insBg);
             mTranslateInsertBtn.setTextColor(accentColor);
         }
+    }
+
+    private void applyExternalActionTheme(TextView button, int accentColor) {
+        if (button == null) {
+            return;
+        }
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.RECTANGLE);
+        background.setCornerRadius(mController.dpToPx(14));
+        background.setColor(mController.getTranslucentColor(accentColor, 18));
+        background.setStroke(mController.dpToPx(1), mController.getTranslucentColor(accentColor, 40));
+        button.setBackground(background);
+        button.setTextColor(accentColor);
     }
 
     public void updateInputContainerFocus() {
